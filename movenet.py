@@ -18,6 +18,10 @@ from IPython.display import HTML, display
 model = hub.load('https://tfhub.dev/google/movenet/singlepose/thunder/3')
 movenet = model.signatures['serving_default']
 
+interpreter = tf.lite.Interpreter(model_path='pose_classifier.tflite')
+interpreter.allocate_tensors()
+input_size = 256
+
 # Threshold for 
 threshold = .3
 
@@ -102,7 +106,7 @@ while success:
     # Output is a [1, 1, 17, 3] tensor.
     keypoints = outputs['output_0']
 
-
+    
     draw_keypoints(img, keypoints, x, y, threshold)
     draw_connections(img, keypoints,KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
     # Shows image
