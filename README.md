@@ -2,7 +2,9 @@
 
 Step-by-step from the [tutorial](https://www.tensorflow.org/lite/tutorials/pose_classification). Some results available in the `images_for_test` folder
 
-`tenzorflow.py` - copied example from Google Colab, need to be tested on our data
+`pose_classification.py` - step-by-step model training
+
+`dataset/poses.zip` - dataset of poses images
 
 `movenet.py` - working video capturing and drawing predictions
 
