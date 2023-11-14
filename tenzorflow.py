@@ -279,13 +279,447 @@ class MoveNetPreprocessor(object):
 
 #@markdown *Note: This code snippet is also useful for debugging when you encounter an image with bad pose classification accuracy. You can run pose estimation on the image and see if the detected landmarks look correct or not before investigating the pose classification logic.*
 
-image = tf.io.read_file('images_for_test/yoga_pose_from_internet.jpg')
-image = tf.io.decode_jpeg(image)
-person = detect(image)
-res = draw_prediction_on_image(image.numpy(), person, crop_region=None, 
-                            close_figure=False, keep_input_size=True)
+def try_logic:
+    image = tf.io.read_file('images_for_test/yoga_pose_from_internet.jpg')
+    image = tf.io.decode_jpeg(image)
+    person = detect(image)
+    res = draw_prediction_on_image(image.numpy(), person, crop_region=None, 
+                                close_figure=False, keep_input_size=True)
 
-plt.figure(figsize=(5, 5))
-plt.imshow(res)
-_ = plt.axis('off')
-plt.savefig('images_for_test/yoga_pose_from_internet_pose_estimated.png')
+    plt.figure(figsize=(5, 5))
+    plt.imshow(res)
+    _ = plt.axis('off')
+    plt.savefig('images_for_test/yoga_pose_from_internet_pose_estimated.png')
+
+
+#@markdown Be sure you run this cell. It's hiding the `split_into_train_test()` function that's called in the next code block.
+
+import os
+import random
+import shutil
+
+def split_into_train_test(images_origin, images_dest, test_split):
+  """Splits a directory of sorted images into training and test sets.
+
+  Args:
+    images_origin: Path to the directory with your images. This directory
+      must include subdirectories for each of your labeled classes. For example:
+      yoga_poses/
+      |__ downdog/
+          |______ 00000128.jpg
+          |______ 00000181.jpg
+          |______ ...
+      |__ goddess/
+          |______ 00000243.jpg
+          |______ 00000306.jpg
+          |______ ...
+      ...
+    images_dest: Path to a directory where you want the split dataset to be
+      saved. The results looks like this:
+      split_yoga_poses/
+      |__ train/
+          |__ downdog/
+              |______ 00000128.jpg
+              |______ ...
+      |__ test/
+          |__ downdog/
+              |______ 00000181.jpg
+              |______ ...
+    test_split: Fraction of data to reserve for test (float between 0 and 1).
+  """
+  _, dirs, _ = next(os.walk(images_origin))
+
+  TRAIN_DIR = os.path.join(images_dest, 'train')
+  TEST_DIR = os.path.join(images_dest, 'test')
+  os.makedirs(TRAIN_DIR, exist_ok=True)
+  os.makedirs(TEST_DIR, exist_ok=True)
+
+  for dir in dirs:
+    # Get all filenames for this dir, filtered by filetype
+    filenames = os.listdir(os.path.join(images_origin, dir))
+    filenames = [os.path.join(images_origin, dir, f) for f in filenames if (
+        f.endswith('.png') or f.endswith('.jpg') or f.endswith('.jpeg') or f.endswith('.bmp'))]
+    # Shuffle the files, deterministically
+    filenames.sort()
+    random.seed(42)
+    random.shuffle(filenames)
+    # Divide them into train/test dirs
+    os.makedirs(os.path.join(TEST_DIR, dir), exist_ok=True)
+    os.makedirs(os.path.join(TRAIN_DIR, dir), exist_ok=True)
+    test_count = int(len(filenames) * test_split)
+    for i, file in enumerate(filenames):
+      if i < test_count:
+        destination = os.path.join(TEST_DIR, dir, os.path.split(file)[1])
+      else:
+        destination = os.path.join(TRAIN_DIR, dir, os.path.split(file)[1])
+      shutil.copyfile(file, destination)
+    print(f'Moved {test_count} of {len(filenames)} from class "{dir}" into test.')
+  print(f'Your split dataset is in "{images_dest}"')
+
+use_custom_dataset = True
+dataset_is_split = False
+
+if use_custom_dataset:
+  # ATTENTION:
+  # You must edit these two lines to match your archive and images folder name:
+  # !tar -xf YOUR_DATASET_ARCHIVE_NAME.tar
+  !unzip -q YOUR_DATASET_ARCHIVE_NAME.zip
+  dataset_in = 'YOUR_DATASET_DIR_NAME'
+
+  # You can leave the rest alone:
+  if not os.path.isdir(dataset_in):
+    raise Exception("dataset_in is not a valid directory")
+  if dataset_is_split:
+    IMAGES_ROOT = dataset_in
+  else:
+    dataset_out = 'split_' + dataset_in
+    split_into_train_test(dataset_in, dataset_out, test_split=0.2)
+    IMAGES_ROOT = dataset_out
+
+# if you want to train the pose classifier with your own image dataset, 
+# you need to upload your images and run this preprocessing step 
+# (leave is_skip_step_1 False)—follow the instructions below to upload your own pose dataset.
+# is_skip_step_1 = False #@param ["False", "True"] {type:"raw"}
+
+# if not is_skip_step_1:
+#   images_in_train_folder = os.path.join(IMAGES_ROOT, 'train')
+#   images_out_train_folder = 'poses_images_out_train'
+#   csvs_out_train_path = 'train_data.csv'
+
+#   preprocessor = MoveNetPreprocessor(
+#       images_in_folder=images_in_train_folder,
+#       images_out_folder=images_out_train_folder,
+#       csvs_out_path=csvs_out_train_path,
+#   )
+
+#   preprocessor.process(per_pose_class_limit=None)
+
+# if not is_skip_step_1:
+#   images_in_test_folder = os.path.join(IMAGES_ROOT, 'test')
+#   images_out_test_folder = 'poses_images_out_test'
+#   csvs_out_test_path = 'test_data.csv'
+
+#   preprocessor = MoveNetPreprocessor(
+#       images_in_folder=images_in_test_folder,
+#       images_out_folder=images_out_test_folder,
+#       csvs_out_path=csvs_out_test_path,
+#   )
+
+#   preprocessor.process(per_pose_class_limit=None)
+
+
+# # Part 2: Train a pose classification model that takes the landmark coordinates as input, and output the predicted labels.
+# # You'll build a TensorFlow model that takes the landmark coordinates and predicts the pose class that the person in the input image performs. The model consists of two submodels:
+
+# # Submodel 1 calculates a pose embedding (a.k.a feature vector) from the detected landmark coordinates.
+# # Submodel 2 feeds pose embedding through several Dense layer to predict the pose class.
+# # You'll then train the model based on the dataset that were preprocessed in part 1.
+
+# def load_pose_landmarks(csv_path):
+#   """Loads a CSV created by MoveNetPreprocessor.
+  
+#   Returns:
+#     X: Detected landmark coordinates and scores of shape (N, 17 * 3)
+#     y: Ground truth labels of shape (N, label_count)
+#     classes: The list of all class names found in the dataset
+#     dataframe: The CSV loaded as a Pandas dataframe features (X) and ground
+#       truth labels (y) to use later to train a pose classification model.
+#   """
+
+#   # Load the CSV file
+#   dataframe = pd.read_csv(csv_path)
+#   df_to_process = dataframe.copy()
+
+#   # Drop the file_name columns as you don't need it during training.
+#   df_to_process.drop(columns=['file_name'], inplace=True)
+
+#   # Extract the list of class names
+#   classes = df_to_process.pop('class_name').unique()
+
+#   # Extract the labels
+#   y = df_to_process.pop('class_no')
+
+#   # Convert the input features and labels into the correct format for training.
+#   X = df_to_process.astype('float64')
+#   y = keras.utils.to_categorical(y)
+
+#   return X, y, classes, dataframe
+
+
+# # Load and split the original TRAIN dataset into TRAIN (85% of the data) and VALIDATE (the remaining 15%).
+# # Load the train data
+# X, y, class_names, _ = load_pose_landmarks(csvs_out_train_path)
+
+# # Split training data (X, y) into (X_train, y_train) and (X_val, y_val)
+# X_train, X_val, y_train, y_val = train_test_split(X, y,
+#                                                   test_size=0.15)
+# # Load the test data
+# X_test, y_test, _, df_test = load_pose_landmarks(csvs_out_test_path)
+
+# # Define functions to convert the pose landmarks to a pose embedding (a.k.a. feature vector) for pose classification
+# # Next, convert the landmark coordinates to a feature vector by:
+
+# # Moving the pose center to the origin.
+# # Scaling the pose so that the pose size becomes 1
+# # Flattening these coordinates into a feature vector
+# # Then use this feature vector to train a neural-network based pose classifier.
+# def get_center_point(landmarks, left_bodypart, right_bodypart):
+#   """Calculates the center point of the two given landmarks."""
+
+#   left = tf.gather(landmarks, left_bodypart.value, axis=1)
+#   right = tf.gather(landmarks, right_bodypart.value, axis=1)
+#   center = left * 0.5 + right * 0.5
+#   return center
+
+
+# def get_pose_size(landmarks, torso_size_multiplier=2.5):
+#   """Calculates pose size.
+
+#   It is the maximum of two values:
+#     * Torso size multiplied by `torso_size_multiplier`
+#     * Maximum distance from pose center to any pose landmark
+#   """
+#   # Hips center
+#   hips_center = get_center_point(landmarks, BodyPart.LEFT_HIP, 
+#                                  BodyPart.RIGHT_HIP)
+
+#   # Shoulders center
+#   shoulders_center = get_center_point(landmarks, BodyPart.LEFT_SHOULDER,
+#                                       BodyPart.RIGHT_SHOULDER)
+
+#   # Torso size as the minimum body size
+#   torso_size = tf.linalg.norm(shoulders_center - hips_center)
+
+#   # Pose center
+#   pose_center_new = get_center_point(landmarks, BodyPart.LEFT_HIP, 
+#                                      BodyPart.RIGHT_HIP)
+#   pose_center_new = tf.expand_dims(pose_center_new, axis=1)
+#   # Broadcast the pose center to the same size as the landmark vector to
+#   # perform substraction
+#   pose_center_new = tf.broadcast_to(pose_center_new,
+#                                     [tf.size(landmarks) // (17*2), 17, 2])
+
+#   # Dist to pose center
+#   d = tf.gather(landmarks - pose_center_new, 0, axis=0,
+#                 name="dist_to_pose_center")
+#   # Max dist to pose center
+#   max_dist = tf.reduce_max(tf.linalg.norm(d, axis=0))
+
+#   # Normalize scale
+#   pose_size = tf.maximum(torso_size * torso_size_multiplier, max_dist)
+
+#   return pose_size
+
+
+# def normalize_pose_landmarks(landmarks):
+#   """Normalizes the landmarks translation by moving the pose center to (0,0) and
+#   scaling it to a constant pose size.
+#   """
+#   # Move landmarks so that the pose center becomes (0,0)
+#   pose_center = get_center_point(landmarks, BodyPart.LEFT_HIP, 
+#                                  BodyPart.RIGHT_HIP)
+#   pose_center = tf.expand_dims(pose_center, axis=1)
+#   # Broadcast the pose center to the same size as the landmark vector to perform
+#   # substraction
+#   pose_center = tf.broadcast_to(pose_center, 
+#                                 [tf.size(landmarks) // (17*2), 17, 2])
+#   landmarks = landmarks - pose_center
+
+#   # Scale the landmarks to a constant pose size
+#   pose_size = get_pose_size(landmarks)
+#   landmarks /= pose_size
+
+#   return landmarks
+
+
+# def landmarks_to_embedding(landmarks_and_scores):
+#   """Converts the input landmarks into a pose embedding."""
+#   # Reshape the flat input into a matrix with shape=(17, 3)
+#   reshaped_inputs = keras.layers.Reshape((17, 3))(landmarks_and_scores)
+
+#   # Normalize landmarks 2D
+#   landmarks = normalize_pose_landmarks(reshaped_inputs[:, :, :2])
+
+#   # Flatten the normalized landmark coordinates into a vector
+#   embedding = keras.layers.Flatten()(landmarks)
+
+#   return embedding
+
+# # Define a Keras model for pose classification
+# # Our Keras model takes the detected pose landmarks, then calculates the pose embedding and predicts the pose class.
+
+# # Define the model
+# inputs = tf.keras.Input(shape=(51))
+# embedding = landmarks_to_embedding(inputs)
+
+# layer = keras.layers.Dense(128, activation=tf.nn.relu6)(embedding)
+# layer = keras.layers.Dropout(0.5)(layer)
+# layer = keras.layers.Dense(64, activation=tf.nn.relu6)(layer)
+# layer = keras.layers.Dropout(0.5)(layer)
+# outputs = keras.layers.Dense(len(class_names), activation="softmax")(layer)
+
+# model = keras.Model(inputs, outputs)
+# print(model.summary())
+
+
+# model.compile(
+#     optimizer='adam',
+#     loss='categorical_crossentropy',
+#     metrics=['accuracy']
+# )
+
+# # Add a checkpoint callback to store the checkpoint that has the highest
+# # validation accuracy.
+# checkpoint_path = "weights.best.hdf5"
+# checkpoint = keras.callbacks.ModelCheckpoint(checkpoint_path,
+#                              monitor='val_accuracy',
+#                              verbose=1,
+#                              save_best_only=True,
+#                              mode='max')
+# earlystopping = keras.callbacks.EarlyStopping(monitor='val_accuracy', 
+#                                               patience=20)
+
+# # Start training
+# history = model.fit(X_train, y_train,
+#                     epochs=200,
+#                     batch_size=16,
+#                     validation_data=(X_val, y_val),
+#                     callbacks=[checkpoint, earlystopping])
+
+# # Visualize the training history to see whether you're overfitting.
+# plt.plot(history.history['accuracy'])
+# plt.plot(history.history['val_accuracy'])
+# plt.title('Model accuracy')
+# plt.ylabel('accuracy')
+# plt.xlabel('epoch')
+# plt.legend(['TRAIN', 'VAL'], loc='lower right')
+# plt.show()
+# plt.savefig('images_for_test/overfitting.png')
+
+# # Evaluate the model using the TEST dataset
+# loss, accuracy = model.evaluate(X_test, y_test)
+
+
+# def plot_confusion_matrix(cm, classes,
+#                           normalize=False,
+#                           title='Confusion matrix',
+#                           cmap=plt.cm.Blues):
+#   """Plots the confusion matrix."""
+#   if normalize:
+#     cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+#     print("Normalized confusion matrix")
+#   else:
+#     print('Confusion matrix, without normalization')
+
+#   plt.imshow(cm, interpolation='nearest', cmap=cmap)
+#   plt.title(title)
+#   plt.colorbar()
+#   tick_marks = np.arange(len(classes))
+#   plt.xticks(tick_marks, classes, rotation=55)
+#   plt.yticks(tick_marks, classes)
+#   fmt = '.2f' if normalize else 'd'
+#   thresh = cm.max() / 2.
+#   for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+#     plt.text(j, i, format(cm[i, j], fmt),
+#               horizontalalignment="center",
+#               color="white" if cm[i, j] > thresh else "black")
+
+#   plt.ylabel('True label')
+#   plt.xlabel('Predicted label')
+#   plt.tight_layout()
+
+# # Classify pose in the TEST dataset using the trained model
+# y_pred = model.predict(X_test)
+
+# # Convert the prediction result to class name
+# y_pred_label = [class_names[i] for i in np.argmax(y_pred, axis=1)]
+# y_true_label = [class_names[i] for i in np.argmax(y_test, axis=1)]
+
+# # Plot the confusion matrix
+# cm = confusion_matrix(np.argmax(y_test, axis=1), np.argmax(y_pred, axis=1))
+# plot_confusion_matrix(cm,
+#                       class_names,
+#                       title ='Confusion Matrix of Pose Classification Model')
+
+# # Print the classification report
+# print('\nClassification Report:\n', classification_report(y_true_label,
+#                                                           y_pred_label))
+
+
+
+# if is_skip_step_1:
+#   raise RuntimeError('You must have run step 1 to run this cell.')
+
+# # If step 1 was skipped, skip this step.
+# IMAGE_PER_ROW = 3
+# MAX_NO_OF_IMAGE_TO_PLOT = 30
+
+# # Extract the list of incorrectly predicted poses
+# false_predict = [id_in_df for id_in_df in range(len(y_test)) \
+#                 if y_pred_label[id_in_df] != y_true_label[id_in_df]]
+# if len(false_predict) > MAX_NO_OF_IMAGE_TO_PLOT:
+#   false_predict = false_predict[:MAX_NO_OF_IMAGE_TO_PLOT]
+
+# # Plot the incorrectly predicted images
+# row_count = len(false_predict) // IMAGE_PER_ROW + 1
+# fig = plt.figure(figsize=(10 * IMAGE_PER_ROW, 10 * row_count))
+# for i, id_in_df in enumerate(false_predict):
+#   ax = fig.add_subplot(row_count, IMAGE_PER_ROW, i + 1)
+#   image_path = os.path.join(images_out_test_folder,
+#                             df_test.iloc[id_in_df]['file_name'])
+
+#   image = cv2.imread(image_path)
+#   plt.title("Predict: %s; Actual: %s"
+#             % (y_pred_label[id_in_df], y_true_label[id_in_df]))
+#   plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+# plt.show()
+
+
+# # Part 3: Convert the pose classification model to TensorFlow Lite
+# # You'll convert the Keras pose classification model to the TensorFlow Lite format so that you can deploy it to mobile apps, web browsers and edge devices. When converting the model, you'll apply dynamic range quantization to reduce the pose classification TensorFlow Lite model size by about 4 times with insignificant accuracy loss.
+
+# # Note: TensorFlow Lite supports multiple quantization schemes. See the documentation if you are interested to learn more.
+
+# converter = tf.lite.TFLiteConverter.from_keras_model(model)
+# converter.optimizations = [tf.lite.Optimize.DEFAULT]
+# tflite_model = converter.convert()
+
+# print('Model size: %dKB' % (len(tflite_model) / 1024))
+
+# with open('pose_classifier.tflite', 'wb') as f:
+#   f.write(tflite_model)
+
+# with open('pose_labels.txt', 'w') as f:
+#   f.write('\n'.join(class_names))
+
+# def evaluate_model(interpreter, X, y_true):
+#   """Evaluates the given TFLite model and return its accuracy."""
+#   input_index = interpreter.get_input_details()[0]["index"]
+#   output_index = interpreter.get_output_details()[0]["index"]
+
+#   # Run predictions on all given poses.
+#   y_pred = []
+#   for i in range(len(y_true)):
+#     # Pre-processing: add batch dimension and convert to float32 to match with
+#     # the model's input data format.
+#     test_image = X[i: i + 1].astype('float32')
+#     interpreter.set_tensor(input_index, test_image)
+
+#     # Run inference.
+#     interpreter.invoke()
+
+#     # Post-processing: remove batch dimension and find the class with highest
+#     # probability.
+#     output = interpreter.tensor(output_index)
+#     predicted_label = np.argmax(output()[0])
+#     y_pred.append(predicted_label)
+
+#   # Compare prediction results with ground truth labels to calculate accuracy.
+#   y_pred = keras.utils.to_categorical(y_pred)
+#   return accuracy_score(y_true, y_pred)
+
+# # Evaluate the accuracy of the converted TFLite model
+# classifier_interpreter = tf.lite.Interpreter(model_content=tflite_model)
+# classifier_interpreter.allocate_tensors()
+# print('Accuracy of TFLite model: %s' %
+#       evaluate_model(classifier_interpreter, X_test, y_test))
