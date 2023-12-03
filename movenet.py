@@ -15,40 +15,6 @@ matplotlib.use("Agg")
 import imageio
 from IPython.display import HTML, display
 
-# Download the model from TF Hub.
-model = hub.load('https://tfhub.dev/google/movenet/singlepose/thunder/3')
-movenet = model.signatures['serving_default']
-
-# Threshold for 
-threshold = .3
-
-# Loads video source (0 is for main webcam)
-video_source = 0
-cap = cv2.VideoCapture(video_source)
-
-# Visualization parameters
-row_size = 80  # pixels
-left_margin = 24  # pixels
-text_color = (0, 0, 255)  # red
-font_size = 5
-font_thickness = 3
-classification_results_to_show = 3
-fps_avg_frame_count = 10
-keypoint_detection_threshold_for_classifier = 0.1
-
-# Checks errors while opening the Video Capture
-if not cap.isOpened():
-    print('Error loading video')
-    quit()
-
-success, img = cap.read()
-
-if not success:
-    print('Error reding frame')
-    quit()
-
-y, x, _ = img.shape
-
 # Maps bones to a matplotlib color name.
 KEYPOINT_EDGE_INDS_TO_COLOR = {
     (0, 1): 'm',
@@ -70,6 +36,68 @@ KEYPOINT_EDGE_INDS_TO_COLOR = {
     (12, 14): 'c',
     (14, 16): 'c'
 }
+
+# Download the model from TF Hub.
+model = hub.load('https://tfhub.dev/google/movenet/singlepose/thunder/3')
+movenet = model.signatures['serving_default']
+
+# Threshold for 
+threshold = .3
+
+# Loads video source (0 is for main webcam)
+video_source = 0
+# cap = cv2.VideoCapture(video_source)
+
+# Visualization parameters
+row_size = 80  # pixels
+left_margin = 24  # pixels
+text_color = (0, 0, 255)  # red
+font_size = 5
+font_thickness = 3
+classification_results_to_show = 3
+fps_avg_frame_count = 10
+keypoint_detection_threshold_for_classifier = 0.1
+
+# # Checks errors while opening the Video Capture
+# if not cap.isOpened():
+#     print('Error loading video')
+#     quit()
+
+# success, img = cap.read()
+
+# if not success:
+#     print('Error reding frame')
+#     quit()
+
+
+def process_image(img): 
+    y, x, _ = img.shape
+
+    tf_img = cv2.resize(img, (256, 256))
+    tf_img = cv2.cvtColor(tf_img, cv2.COLOR_BGR2RGB)
+    tf_img = np.asarray(tf_img)
+    tf_img = np.expand_dims(tf_img, axis=0)
+
+    # Resize and pad the image to keep the aspect ratio and fit the expected size.
+    image = tf.cast(tf_img, dtype=tf.int32)
+
+    # Run model inference.
+    outputs = movenet(image)
+    # Output is a [1, 1, 17, 3] tensor.
+    keypoints = outputs['output_0']
+
+    draw_keypoints(img, keypoints, x, y, threshold)
+    draw_connections(img, keypoints, KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
+
+    # Show the class
+    cl, angle = classify_pose(keypoints)
+    fps_text = 'class = ' + cl + '\n angle =' + angle
+    text_location = (left_margin, row_size)
+    cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
+                font_size, text_color, font_thickness)
+    # Shows image
+    return img
+
 
 
 def draw_keypoints(frame, keypoints, x, y, confidence_threshold):
@@ -135,37 +163,37 @@ def classify_pose(keypoints):
     return 'up', str(angle_degrees)
 
 
-while success:
-    # A frame of video or an image, represented as an int32 tensor of shape: 256x256x3. Channels order: RGB with values in [0, 255].
-    tf_img = cv2.resize(img, (256, 256))
-    tf_img = cv2.cvtColor(tf_img, cv2.COLOR_BGR2RGB)
-    tf_img = np.asarray(tf_img)
-    tf_img = np.expand_dims(tf_img, axis=0)
+# while success:
+#     # A frame of video or an image, represented as an int32 tensor of shape: 256x256x3. Channels order: RGB with values in [0, 255].
+#     tf_img = cv2.resize(img, (256, 256))
+#     tf_img = cv2.cvtColor(tf_img, cv2.COLOR_BGR2RGB)
+#     tf_img = np.asarray(tf_img)
+#     tf_img = np.expand_dims(tf_img, axis=0)
 
-    # Resize and pad the image to keep the aspect ratio and fit the expected size.
-    image = tf.cast(tf_img, dtype=tf.int32)
+#     # Resize and pad the image to keep the aspect ratio and fit the expected size.
+#     image = tf.cast(tf_img, dtype=tf.int32)
 
-    # Run model inference.
-    outputs = movenet(image)
-    # Output is a [1, 1, 17, 3] tensor.
-    keypoints = outputs['output_0']
+#     # Run model inference.
+#     outputs = movenet(image)
+#     # Output is a [1, 1, 17, 3] tensor.
+#     keypoints = outputs['output_0']
 
-    draw_keypoints(img, keypoints, x, y, threshold)
-    draw_connections(img, keypoints, KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
+#     draw_keypoints(img, keypoints, x, y, threshold)
+#     draw_connections(img, keypoints, KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
 
-    # Show the class
-    cl, angle = classify_pose(keypoints)
-    fps_text = 'class = ' + cl + '\n angle =' + angle
-    text_location = (left_margin, row_size)
-    cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
-                font_size, text_color, font_thickness)
-    # Shows image
-    cv2.imshow('Movenet', img)
-    # Waits for the next frame, checks if q was pressed to quit
-    if cv2.waitKey(1) == ord("q"):
-        break
+#     # Show the class
+#     cl, angle = classify_pose(keypoints)
+#     fps_text = 'class = ' + cl + '\n angle =' + angle
+#     text_location = (left_margin, row_size)
+#     cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
+#                 font_size, text_color, font_thickness)
+#     # Shows image
+#     cv2.imshow('Movenet', img)
+#     # Waits for the next frame, checks if q was pressed to quit
+#     if cv2.waitKey(1) == ord("q"):
+#         break
 
-    # Reads next frame
-    success, img = cap.read()
+#     # Reads next frame
+#     success, img = cap.read()
 
-cap.release()
+# cap.release()

@@ -9,3 +9,5 @@ Step-by-step from the [tutorial](https://www.tensorflow.org/lite/tutorials/pose_
 `movenet.py` - working video capturing and drawing predictions
 
 `/unused/` - .py files that do the same, but with some problems; I do not want to delete it right now
+
+`pyuic5 ui/MainWindow.ui -o ui/output.py`
