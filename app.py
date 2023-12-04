@@ -5,8 +5,9 @@ from PyQt5.QtGui import QImage
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtGui import QImage, QPainter
-from PyQt5.QtCore import QTime
+from PyQt5.QtCore import QTime, QSize
 import movenet
+from circular_progress_bar import CircularProgressBar
 
 class Ui(QtWidgets.QMainWindow):
     def __init__(self):
@@ -15,12 +16,17 @@ class Ui(QtWidgets.QMainWindow):
         uic.loadUi('ui/MainWindow.ui', self) # Load the .ui file
 
         self.progressBar.setValue(0)
-        self.radioDownBtn.setChecked(False)
-        self.radioPerpBtn.setChecked(False)
-        self.radioUpBtn.setChecked(False)
+
+        self.circularProgressBarUp = CircularProgressBar()
+        self.circularProgressBarDown = CircularProgressBar()
+        self.circularProgressBarPerp = CircularProgressBar()
+
+        self.horizontalLayout.layout().addWidget(self.circularProgressBarDown)
+        self.horizontalLayout.layout().addWidget(self.circularProgressBarPerp)
+        self.horizontalLayout.layout().addWidget(self.circularProgressBarUp)
 
         # Add CameraWidget to the main window
-        self.camera_widget = CameraWidget(self.radioDownBtn, self.radioPerpBtn, self.radioUpBtn, self.progressBar)
+        self.camera_widget = CameraWidget(self.circularProgressBarDown, self.circularProgressBarPerp, self.circularProgressBarUp, self.progressBar)
         self.cameraWidget.setLayout(QtWidgets.QVBoxLayout())
         self.cameraWidget.layout().addWidget(self.camera_widget)
 
@@ -29,16 +35,21 @@ class Ui(QtWidgets.QMainWindow):
         self.endBtn.clicked.connect(self.camera_widget.endExercise)
 
 class CameraWidget(QWidget):
-    def __init__(self, radioDownBtn, radioPerpBtn, radioUpBtn, progressBar):
+    def __init__(self, dialDown, dialPerp, dialUp, progressBar):
         super().__init__()
 
         self.initUI()
 
-        # buttons, radio bars
-        self.radioDownBtn = radioDownBtn
-        self.radioPerpBtn = radioPerpBtn
-        self.radioUpBtn = radioUpBtn
+
+        self.pose_time_required = 3000  # 3 seconds in milliseconds
+
+
+        # dials, progress bars
+        self.dialDown = dialDown
+        self.dialPerp = dialPerp
+        self.dialUp = dialUp
         self.progressBar = progressBar
+
         
         # Initialize camera
         self.cap = cv2.VideoCapture(0)
@@ -57,20 +68,10 @@ class CameraWidget(QWidget):
 
     def initLeftHandExercise(self):
         self.pose_sequence = ["down", "perp", "up"]
-        self.pose_buttons_sequence = [self.radioDownBtn, self.radioPerpBtn, self.radioUpBtn]
         self.current_pose_index = 0
         self.pose_timer = QTime()
-        self.pose_time_required = 3000  # 3 seconds in milliseconds
-    
-    def updateUI(self, pose):
-        # Update radio buttons
-        if pose == "down":
-            self.radioDownBtn.setChecked(True)
-        elif pose == "perp":
-            self.radioPerpBtn.setChecked(True)
-        elif pose == "up":
-            self.radioUpBtn.setChecked(True)
 
+    def updateUI(self, pose):
         # Update progress bar
         progress = (self.current_pose_index + 1) * 33
         self.progressBar.setValue(min(progress, 100))
@@ -80,22 +81,40 @@ class CameraWidget(QWidget):
         self.current_pose_index = 0
         self.pose_timer.start()
         self.progressBar.setValue(0)
-        self.radioDownBtn.setChecked(False)
-        self.radioPerpBtn.setChecked(False)
-        self.radioUpBtn.setChecked(False)
+
 
     def endExercise(self):
         self.is_exercising = False
 
     def checkPose(self, processed_image):
         current_pose = self.pose_sequence[self.current_pose_index]
-        if processed_image.is_pose(current_pose) and self.pose_timer.elapsed() >= self.pose_time_required:
-            self.updateUI(current_pose)
-            self.current_pose_index += 1
-            if self.current_pose_index >= len(self.pose_sequence):
-                self.endExercise()  # End exercise if all poses are done
-            else:
-                self.pose_timer.restart()  # Restart timer for the next pose
+        if processed_image.is_pose(current_pose):
+            elapsed_time = self.pose_timer.elapsed()
+            self.updateDial(current_pose, elapsed_time)
+            if elapsed_time >= self.pose_time_required:
+                self.updateUI(current_pose)
+                self.current_pose_index += 1
+                if self.current_pose_index < len(self.pose_sequence):
+                    self.pose_timer.restart()  # Restart timer for the next pose
+                else:
+                    self.endExercise()  # End exercise if all poses are done
+        else:
+            # Reset the dials if the pose is not correct
+            self.resetDials()
+            self.pose_timer.restart()
+
+    def updateDial(self, pose, value):
+        if pose == "down":
+            self.dialDown.setValue(value)
+        elif pose == "perp":
+            self.dialPerp.setValue(value)
+        elif pose == "up":
+            self.dialUp.setValue(value)
+
+    def resetDials(self):
+        self.dialDown.setValue(0)
+        self.dialPerp.setValue(0)
+        self.dialUp.setValue(0)
 
 
     def updateFrame(self):
