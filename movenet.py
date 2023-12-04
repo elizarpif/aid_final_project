@@ -91,7 +91,8 @@ def process_image(img):
 
     # Show the class
     cl, angle = classify_pose(keypoints)
-    fps_text = 'class = ' + cl + '\n angle =' + angle
+    #fps_text = 'class = ' + cl + '\n angle =' + angle
+    fps_text = f'class: {cl}'
     text_location = (left_margin, row_size)
     cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
                 font_size, text_color, font_thickness)
@@ -142,58 +143,87 @@ def calculate_angle(a, b, c):
     return np.degrees(angle)
 
 
+def calculate_angle(a, b, c, d):
+    """Calculate the angle between four points (x, y)."""
+    a = np.array(a)
+    b = np.array(b)
+    c = np.array(c)
+    d = np.array(d)
+    
+    ba = a - b
+    bc = c - b
+    bd = d - b
+    
+    cosine_angle1 = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+    cosine_angle2 = np.dot(ba, bd) / (np.linalg.norm(ba) * np.linalg.norm(bd))
+    
+    # Calculate angles between the vectors
+    angle1 = np.arccos(cosine_angle1)
+    angle2 = np.arccos(cosine_angle2)
+    
+    # Calculate the angle between the vectors (considering the fourth point)
+    angle = angle1 + angle2
+    
+    return np.degrees(angle)
+
+
+# Add global variables to manage pose states
+pose_states = {
+    'down': False,
+    'perp': False,
+    'up': False
+}
+
 def classify_pose(keypoints):
+    global pose_states
+    
     # Assuming the same indices for right shoulder, right hip, and right wrist
     SHOULDER_INDEX = 6
     HIP_INDEX = 12
     WRIST_INDEX = 10
+    ELBOW_INDEX = 8
 
     # Extract the specific keypoints (x, y) coordinates
     shoulder = keypoints[0, 0, SHOULDER_INDEX, :2]
     hip = keypoints[0, 0, HIP_INDEX, :2]
     wrist = keypoints[0, 0, WRIST_INDEX, :2]
+    elbow = keypoints[0, 0, ELBOW_INDEX, :2]
 
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
-    angle_degrees = calculate_angle(wrist.numpy(),shoulder.numpy(), hip.numpy())
+    angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
+    print(f'angle: {angle_degrees}')
+
+    current_movement = None
 
     if angle_degrees < 30:
-        return 'down', str(angle_degrees)
-    if angle_degrees < 130:
-        return 'perp', str(angle_degrees)
-    return 'up', str(angle_degrees)
+        current_movement = 'down'
+    elif 100 <= angle_degrees <= 135:
+        current_movement = 'perp'
+    elif angle_degrees > 180:   
+        current_movement = 'up'
 
+    print("Current Movement:", current_movement)
+    print("Pose States:", pose_states)
+   
+    # Manage pose states based on sequence logic
+    if not pose_states['down']:
+        if current_movement == 'down':
+            pose_states['down'] = True
+    elif pose_states['down'] and not pose_states['perp']:
+        if current_movement == 'perp':
+            pose_states['perp'] = True
+    elif pose_states['down'] and pose_states['perp'] and not pose_states['up']:
+        if current_movement == 'up':
+            pose_states['up'] = True
 
-# while success:
-#     # A frame of video or an image, represented as an int32 tensor of shape: 256x256x3. Channels order: RGB with values in [0, 255].
-#     tf_img = cv2.resize(img, (256, 256))
-#     tf_img = cv2.cvtColor(tf_img, cv2.COLOR_BGR2RGB)
-#     tf_img = np.asarray(tf_img)
-#     tf_img = np.expand_dims(tf_img, axis=0)
-
-#     # Resize and pad the image to keep the aspect ratio and fit the expected size.
-#     image = tf.cast(tf_img, dtype=tf.int32)
-
-#     # Run model inference.
-#     outputs = movenet(image)
-#     # Output is a [1, 1, 17, 3] tensor.
-#     keypoints = outputs['output_0']
-
-#     draw_keypoints(img, keypoints, x, y, threshold)
-#     draw_connections(img, keypoints, KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
-
-#     # Show the class
-#     cl, angle = classify_pose(keypoints)
-#     fps_text = 'class = ' + cl + '\n angle =' + angle
-#     text_location = (left_margin, row_size)
-#     cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
-#                 font_size, text_color, font_thickness)
-#     # Shows image
-#     cv2.imshow('Movenet', img)
-#     # Waits for the next frame, checks if q was pressed to quit
-#     if cv2.waitKey(1) == ord("q"):
-#         break
-
-#     # Reads next frame
-#     success, img = cap.read()
-
-# cap.release()
+    # Check if all poses have been detected in order
+    if pose_states['down'] and pose_states['perp'] and pose_states['up']:
+        # Reset pose states for the next sequence
+        pose_states = {
+            'down': False,
+            'perp': False,
+            'up': False
+        }
+        return 'Correct Sequence Detected', angle_degrees
+    else:
+        return 'Waiting for Next Pose', angle_degrees
