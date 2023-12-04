@@ -58,17 +58,14 @@ classification_results_to_show = 3
 fps_avg_frame_count = 10
 keypoint_detection_threshold_for_classifier = 0.1
 
-# # Checks errors while opening the Video Capture
-# if not cap.isOpened():
-#     print('Error loading video')
-#     quit()
 
-# success, img = cap.read()
-
-# if not success:
-#     print('Error reding frame')
-#     quit()
-
+class ProcessedImage:
+    def __init__(self, img, pose_class, angle):
+        self.img = img
+        self.pose_class = pose_class
+        self.angle = angle
+    def is_pose(self, pose):
+        return self.pose_class == pose
 
 def process_image(img): 
     y, x, _ = img.shape
@@ -97,7 +94,7 @@ def process_image(img):
     cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
                 font_size, text_color, font_thickness)
     # Shows image
-    return img
+    return ProcessedImage(img, cl, angle)
 
 
 
@@ -191,7 +188,7 @@ def classify_pose(keypoints):
 
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
     angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
-    print(f'angle: {angle_degrees}')
+    # print(f'angle: {angle_degrees}')
 
     current_movement = None
 
@@ -202,28 +199,5 @@ def classify_pose(keypoints):
     elif angle_degrees > 180:   
         current_movement = 'up'
 
-    print("Current Movement:", current_movement)
-    print("Pose States:", pose_states)
-   
-    # Manage pose states based on sequence logic
-    if not pose_states['down']:
-        if current_movement == 'down':
-            pose_states['down'] = True
-    elif pose_states['down'] and not pose_states['perp']:
-        if current_movement == 'perp':
-            pose_states['perp'] = True
-    elif pose_states['down'] and pose_states['perp'] and not pose_states['up']:
-        if current_movement == 'up':
-            pose_states['up'] = True
-
-    # Check if all poses have been detected in order
-    if pose_states['down'] and pose_states['perp'] and pose_states['up']:
-        # Reset pose states for the next sequence
-        pose_states = {
-            'down': False,
-            'perp': False,
-            'up': False
-        }
-        return 'Correct Sequence Detected', angle_degrees
-    else:
-        return 'Waiting for Next Pose', angle_degrees
+    
+    return current_movement, angle_degrees

@@ -262,6 +262,12 @@ QRadioButton::indicator:!checked {
         <string>Down</string>
        </property>
        <property name="checkable">
+        <bool>true</bool>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+       <property name="autoExclusive">
         <bool>false</bool>
        </property>
       </widget>
@@ -298,6 +304,12 @@ QRadioButton::indicator:!checked {
         <string>Perpendicular</string>
        </property>
        <property name="checkable">
+        <bool>true</bool>
+       </property>
+       <property name="checked">
+        <bool>false</bool>
+       </property>
+       <property name="autoExclusive">
         <bool>false</bool>
        </property>
       </widget>
@@ -334,6 +346,9 @@ QRadioButton::indicator:!checked {
         <string>Up</string>
        </property>
        <property name="checkable">
+        <bool>true</bool>
+       </property>
+       <property name="autoExclusive">
         <bool>false</bool>
        </property>
       </widget>
