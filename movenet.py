@@ -1,3 +1,4 @@
+# Import tensorflow, opencv, and numpy
 import tensorflow as tf
 import tensorflow_hub as hub
 from tensorflow_docs.vis import embed
@@ -11,12 +12,13 @@ import matplotlib.patches as patches
 import matplotlib
 
 matplotlib.use("Agg")
+
 # Some modules to display an animation using imageio.
-import imageio
-from IPython.display import HTML, display
+#import imageio
+#from IPython.display import HTML, display
 
 # Download the model from TF Hub.
-model = hub.load('https://tfhub.dev/google/movenet/singlepose/thunder/3')
+model = hub.load('https://www.kaggle.com/models/google/movenet/frameworks/tensorFlow2/variations/singlepose-thunder/versions/3?tfhub-redirect=true')
 movenet = model.signatures['serving_default']
 
 # Threshold for 
@@ -145,10 +147,11 @@ pose_states = {
     'up': False
 }
 
+# Function to classify pose
 def classify_pose(keypoints):
     global pose_states
     
-    # Assuming the same indices for right shoulder, right hip, and right wrist
+    # Iindices for right shoulder, right hip, right wrist, and right elbow
     SHOULDER_INDEX = 6
     HIP_INDEX = 12
     WRIST_INDEX = 10
@@ -162,17 +165,19 @@ def classify_pose(keypoints):
 
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
     angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
-    print(f'angle: {angle_degrees}')
+    print(f'Angle: {angle_degrees}')
 
     current_movement = None
 
-    if angle_degrees < 30:
+    # Determine pose movement based on angle threshold values
+    if angle_degrees < 20:
         current_movement = 'down'
-    elif 100 <= angle_degrees <= 135:
+    elif 90 <= angle_degrees <= 100:
         current_movement = 'perp'
-    elif angle_degrees > 180:   
+    elif angle_degrees > 185:   
         current_movement = 'up'
 
+    # Print current movement and pose states for debugging
     print("Current Movement:", current_movement)
     print("Pose States:", pose_states)
    
@@ -197,63 +202,73 @@ def classify_pose(keypoints):
         }
         return 'Correct Sequence Detected', angle_degrees
     else:
-        return 'Waiting for Next Pose', angle_degrees
+        return f'{pose_states}', angle_degrees
 
 
+# Visualization parameters
+row_size = 450  # pixels - adjusted for larger text space
+left_margin = 24  # pixels
+text_color = (0, 0, 255)  # red
+font_size = 1  # reduced font size for better visibility
+font_thickness = 2  # slightly reduced font thickness
 
-#def classify_pose(keypoints):
-    # Assuming the same indices for right shoulder, right hip, and right wrist
-    #SHOULDER_INDEX = 6
-    #HIP_INDEX = 12
-    #WRIST_INDEX = 10
+# Create a larger window for better visibility
+window_name = 'Movenet'
+cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+cv2.resizeWindow(window_name, 800, 600)  # increased window size
 
-    # Extract the specific keypoints (x, y) coordinates
-    #shoulder = keypoints[0, 0, SHOULDER_INDEX, :2]
-    #hip = keypoints[0, 0, HIP_INDEX, :2]
-    #wrist = keypoints[0, 0, WRIST_INDEX, :2]
-
-    # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
-    #angle_degrees = calculate_angle(wrist.numpy(),shoulder.numpy(), hip.numpy())
-
-    #if angle_degrees < 30:
-        #return 'down', str(angle_degrees)
-    #if angle_degrees < 130:
-        #return 'perp', str(angle_degrees)
-    #return 'up', str(angle_degrees)
-
+correct_sequence_detected = False
+show_instructions = False
 
 while success:
-    # A frame of video or an image, represented as an int32 tensor of shape: 256x256x3. Channels order: RGB with values in [0, 255].
     tf_img = cv2.resize(img, (256, 256))
     tf_img = cv2.cvtColor(tf_img, cv2.COLOR_BGR2RGB)
     tf_img = np.asarray(tf_img)
     tf_img = np.expand_dims(tf_img, axis=0)
 
-    # Resize and pad the image to keep the aspect ratio and fit the expected size.
     image = tf.cast(tf_img, dtype=tf.int32)
 
-    # Run model inference.
     outputs = movenet(image)
-    # Output is a [1, 1, 17, 3] tensor.
     keypoints = outputs['output_0']
 
     draw_keypoints(img, keypoints, x, y, threshold)
     draw_connections(img, keypoints, KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
 
-    # Show the class
     cl, angle = classify_pose(keypoints)
-    #fps_text = 'class = ' + cl + '\n angle =' + angle
-    fps_text = f'class: {cl}'
-    text_location = (left_margin, row_size)
-    cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
+
+    pose_text = f'Class: {cl}, Angle: {angle:.2f} degrees'  # Pose with angle to display
+
+    # Display the pose and angle text at the bottom of the frame
+    cv2.putText(img, pose_text, (left_margin, row_size), cv2.FONT_HERSHEY_PLAIN,
                 font_size, text_color, font_thickness)
-    # Shows image
-    cv2.imshow('Movenet', img)
-    # Waits for the next frame, checks if q was pressed to quit
-    if cv2.waitKey(1) == ord("q"):
+
+    # Check if correct sequence detected before displaying instructions
+    if cl.startswith('Correct'):
+        show_instructions = True
+
+    # Display instructions if the flag is set
+    if show_instructions:
+        instruction_text = ["              Instructions:",
+                            "      Correct Pose Sequence Detected.",
+                            "    Press 'R' to restart or 'Q' to Quit"]
+        text_y = 50
+        for line in instruction_text:
+            cv2.putText(img, line, (50, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            text_y += 30  # Adjust vertical spacing between lines
+
+    cv2.imshow(window_name, img)
+    key = cv2.waitKey(1)
+
+    if key == ord("r"):
+        pose_states = {
+            'down': False,
+            'perp': False,
+            'up': False
+        }
+        show_instructions = False  # Reset the flag when 'R' is pressed
+    elif key == ord("q"):
         break
 
-    # Reads next frame
     success, img = cap.read()
 
 cap.release()
