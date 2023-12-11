@@ -18,7 +18,7 @@ matplotlib.use("Agg")
 #from IPython.display import HTML, display
 
 # Download the model from TF Hub.
-model = hub.load('https://www.kaggle.com/models/google/movenet/frameworks/tensorFlow2/variations/singlepose-thunder/versions/3?tfhub-redirect=true')
+model = hub.load('https://tfhub.dev/google/movenet/singlepose/thunder/3')
 movenet = model.signatures['serving_default']
 
 # Threshold for 
@@ -139,6 +139,25 @@ def calculate_angle(a, b, c, d):
     
     return np.degrees(angle)
 
+import numpy as np
+
+def calculate_wrist_elbow_shoulder_angle(wrist, elbow, shoulder):
+    """Calculate the angle between wrist, elbow, and shoulder points."""
+    wrist = np.array(wrist)
+    elbow = np.array(elbow)
+    shoulder = np.array(shoulder)
+    
+    # Define vectors from wrist to elbow and wrist to shoulder
+    wrist_to_elbow = elbow - wrist
+    wrist_to_shoulder = shoulder - wrist
+    
+    # Calculate angles between the vectors
+    cosine_angle = np.dot(wrist_to_elbow, wrist_to_shoulder) / (np.linalg.norm(wrist_to_elbow) * np.linalg.norm(wrist_to_shoulder))
+    angle = np.arccos(cosine_angle)
+    
+    return np.degrees(angle)
+
+
 
 # Add global variables to manage pose states
 pose_states = {
@@ -165,6 +184,7 @@ def classify_pose(keypoints):
 
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
     angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
+    wes_degrees = calculate_wrist_elbow_shoulder_angle(wrist.numpy(), elbow.numpy(), shoulder.numpy())
     print(f'Angle: {angle_degrees}')
 
     current_movement = None
@@ -172,14 +192,15 @@ def classify_pose(keypoints):
     # Determine pose movement based on angle threshold values
     if angle_degrees < 20:
         current_movement = 'down'
-    elif 90 <= angle_degrees <= 100:
+    elif 90 <= angle_degrees <= 105:
         current_movement = 'perp'
-    elif angle_degrees > 185:   
+    elif 200 > angle_degrees > 180 and 0 < wes_degrees < 8:   
         current_movement = 'up'
 
     # Print current movement and pose states for debugging
     print("Current Movement:", current_movement)
     print("Pose States:", pose_states)
+    print("WES Degrees:", wes_degrees)
    
     # Manage pose states based on sequence logic
     if not pose_states['down']:
