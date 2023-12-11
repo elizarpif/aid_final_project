@@ -127,7 +127,7 @@ def draw_connections(frame, keypoints, edges, confidence_threshold) -> None:
             cv2.line(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 255), 2)
 
 
-def calculate_angle(a, b, c):
+def calculate_angle_three(a, b, c):
     """Calculate the angle between three points. Points are (x, y) tuples."""
     a = np.array(a)
     b = np.array(b)
@@ -188,7 +188,9 @@ def classify_pose(keypoints):
 
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
     angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
-    # print(f'angle: {angle_degrees}')
+    wes_degrees = calculate_angle_three(wrist.numpy(), elbow.numpy(), shoulder.numpy())
+    print(f'elbow angle: {wes_degrees}')
+    print(f'gen angle: {angle_degrees}')
 
     current_movement = None
 
@@ -196,7 +198,7 @@ def classify_pose(keypoints):
         current_movement = 'down'
     elif 100 <= angle_degrees <= 135:
         current_movement = 'perp'
-    elif angle_degrees > 180:   
+    elif 200 > angle_degrees > 180 and 155 < wes_degrees < 170:  
         current_movement = 'up'
 
     
