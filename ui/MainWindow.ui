@@ -119,6 +119,8 @@ QPushButton
  padding: 1px;
  padding-left: 1px;
  padding-right: 1px;
+ min-width: 100px; /* Set minimum width */
+ min-height: 30px; /* Set minimum height */
 }
 
 QPushButton:pressed
@@ -615,69 +617,49 @@ QCheckBox::indicator:disabled, QRadioButton::indicator:disabled
      <height>20</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuMenu">
-    <property name="title">
-     <string>Menu</string>
-    </property>
-    <addaction name="actionAbout_authors"/>
-    <addaction name="actionAbout_application"/>
-    <addaction name="actionExit"/>
-   </widget>
    <widget class="QMenu" name="menuSettings">
     <property name="title">
      <string>Settings</string>
     </property>
     <addaction name="actionSkeleton_view"/>
+    <addaction name="separator"/>
+    <addaction name="actionAbout_application"/>
+    <addaction name="actionAbout_authors"/>
+    <addaction name="actionExit"/>
    </widget>
-   <addaction name="menuMenu"/>
    <addaction name="menuSettings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
-  <action name="actionExit">
-   <property name="text">
-    <string>Exit</string>
+  <action name="actionSkeleton_view">
+   <property name="checkable">
+    <bool>true</bool>
    </property>
-  </action>
-  <action name="actionAbout_authors">
+   <property name="checked">
+    <bool>false</bool>
+   </property>
    <property name="text">
-    <string>About authors</string>
+    <string>Skeleton view</string>
    </property>
   </action>
   <action name="actionAbout_application">
    <property name="text">
     <string>About application</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
+   </property>
   </action>
-  <action name="actionLeft_hand">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
+  <action name="actionAbout_authors">
    <property name="text">
-    <string>Left hand</string>
+    <string>About authors</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+B</string>
    </property>
   </action>
-  <action name="actionRight_hand">
-   <property name="text">
-    <string>Right hand</string>
-   </property>
-  </action>
-  <action name="actionExit_2">
+  <action name="actionExit">
    <property name="text">
     <string>Exit</string>
-   </property>
-  </action>
-  <action name="actionSkeleton_view">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="checked">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>Skeleton view</string>
    </property>
   </action>
  </widget>

@@ -1,11 +1,12 @@
 import sys
 import cv2
-from PyQt5.QtWidgets import  QWidget, QLabel
+from PyQt5.QtWidgets import  QWidget, QLabel, QMessageBox
 from PyQt5.QtGui import QImage
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5 import uic, QtWidgets
 from PyQt5.QtGui import QImage, QPainter
 from PyQt5.QtCore import QTime, QSize
+
 import movenet
 from circular_progress_bar import CircularProgressBar
 
@@ -54,10 +55,49 @@ class Ui(QtWidgets.QMainWindow):
         self.cameraWidget.layout().addWidget(self.camera_widget)
 
          # Connect start and end buttons to the exercise methods
-        self.startBtn.clicked.connect(self.camera_widget.startExercise)
+        self.startBtn.clicked.connect(self.startExercise)
         self.endBtn.clicked.connect(self.camera_widget.endExercise)
 
         self.actionSkeleton_view.triggered.connect(lambda checked: self.camera_widget.setIsSkeletonView(checked))
+
+        self.actionAbout_application.triggered.connect(lambda clicked: self.showAboutApplication)
+        self.actionAbout_authors.triggered.connect(lambda clicked: self.showAboutAuthors)
+        self.actionExit.triggered.connect(lambda clicked: QtWidgets.QApplication.quit)
+
+    def showAboutApplication(self):
+        QMessageBox.information(self, "About Application", 
+                                "Application Rehabilitation Feedback Assistant v1.0\n"+
+                                "Rehabilitation Feedback Assistant is designed to aid patients in their rehabilitation exercises " +
+                                "by providing real-time feedback. The app utilizes advanced pose estimation technology to analyze " + 
+                                "and evaluate users' movements during exercises. It offers immediate visual or auditory cues, enabling "+ 
+                                "users to make instant corrections. This approach ensures correct exercise execution, potentially leading "+
+                                "to faster and more effective rehabilitation. Users can select prescribed exercises and receive "+
+                                "instantaneous, actionable feedback as they perform each movement."
+                                   )
+
+    def showAboutAuthors(self):
+        QMessageBox.information(self, "About Authors", 
+                                "Elizaveta Pivovarova, Khadija Hammawa")
+
+    def startExercise(self):
+        if not self.listWidget.selectedItems():
+            # If no item is selected, show a message dialog
+            QMessageBox.information(self, "Exercise Selection", 
+                                    "Please select an exercise.")
+            return
+        
+        selectedItem = self.listWidget.currentItem()
+
+        if selectedItem.text() == "Left hand":
+            # If the selected item is "Left hand", start the exercise
+            QMessageBox.information(self, "Left Hand Exercise",
+                                    "Exercise 'Left Hand':\n"
+                                    "1. First, position your left hand down.\n"
+                                    "2. Next, straighten your left hand.\n"
+                                    "3. Finally, raise your left hand up.\n\n"
+                                    "Observe your progress on the indicators. To end the exercise, click 'End Exercise'.")
+            self.camera_widget.startExercise()
+
 
 class CameraWidget(QWidget):
     def __init__(self, dialDown, dialPerp, dialUp, progressBar, pose_time_required):
@@ -65,7 +105,7 @@ class CameraWidget(QWidget):
 
         self.initUI()
 
-        self.is_skeleton_viewable = True
+        self.is_skeleton_viewable = False
 
         self.pose_time_required = pose_time_required  # 3 seconds in milliseconds
 
