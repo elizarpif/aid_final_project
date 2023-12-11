@@ -7,11 +7,12 @@ class CircularProgressBar(QWidget):
     # Create a signal to emit when the value changes
     valueChanged = pyqtSignal(int)
 
-    def __init__(self, parent=None):
+    def __init__(self, time_required,parent=None):
         super().__init__(parent)
         self.value = 0
         self.setMaximumWidth(200)
         self.setMaximumHeight(200)
+        self.maxValue = time_required
     
     def sizeHint(self):
         return QSize(200, 200)  # Provide a default size
@@ -26,8 +27,13 @@ class CircularProgressBar(QWidget):
         rect = QRect(10, 10, size, size)  # QRect is used instead of QRectF
 
         # Angles in drawArc are 1/16th of a degree, so we multiply by 16.
-        start_angle = 90 * 16  # Start angle is 90 degrees above the horizontal
-        span_angle = int(-360 * 16 * self.value / 100)  # Span angle should be an integer
+        # A full circle is 360 degrees, which is 5760 in 1/16th degrees.
+        full_circle = 360 * 16
+
+        # Calculate span_angle based on the current value
+        # It linearly maps the value range [1, 3000] to the angle range [0, full_circle]
+        span_angle = int((self.value / self.maxValue) * full_circle)
+        start_angle = 90*16
 
         # Draw the background circle
         background_pen = QPen(Qt.gray, lineWidth)
@@ -39,16 +45,20 @@ class CircularProgressBar(QWidget):
         progress_pen = QPen(Qt.green, lineWidth)
         progress_pen.setCapStyle(Qt.RoundCap)
         painter.setPen(progress_pen)
-        painter.drawArc(rect, start_angle, span_angle)
+        painter.drawArc(rect, start_angle, -span_angle)
+
+        # Calculate the percentage of the ellipse filled
+        percentage_filled = (self.value / self.maxValue) * 100
 
         # Draw the percentage text
         font = painter.font()
         font.setPointSize(10)  # Adjust size as needed
         painter.setFont(font)
         painter.setPen(Qt.black)
-        painter.drawText(rect, Qt.AlignCenter, f"{self.value}%")
+        painter.drawText(rect, Qt.AlignCenter, f"{percentage_filled:.0f}%")
+        # print(f"value {self.value}, max_value {self.maxValue}, percentage={percentage_filled:.0f}%")
 
     def setValue(self, value):
-        # Ensure value is between 0 and 100
-        self.value = max(0, min(100, value))
+        # Ensure value is between 0 and 3000
+        self.value = max(0, min(self.maxValue, value))
         self.update()  # Trigger a repaint

@@ -17,16 +17,25 @@ class Ui(QtWidgets.QMainWindow):
 
         self.progressBar.setValue(0)
 
-        self.circularProgressBarUp = CircularProgressBar()
-        self.circularProgressBarDown = CircularProgressBar()
-        self.circularProgressBarPerp = CircularProgressBar()
+        pose_time_required = 3000
+
+        self.circularProgressBarUp = CircularProgressBar(pose_time_required)
+        self.circularProgressBarDown = CircularProgressBar(pose_time_required)
+        self.circularProgressBarPerp = CircularProgressBar(pose_time_required)
 
         self.horizontalLayout.layout().addWidget(self.circularProgressBarDown)
         self.horizontalLayout.layout().addWidget(self.circularProgressBarPerp)
         self.horizontalLayout.layout().addWidget(self.circularProgressBarUp)
 
         # Add CameraWidget to the main window
-        self.camera_widget = CameraWidget(self.circularProgressBarDown, self.circularProgressBarPerp, self.circularProgressBarUp, self.progressBar)
+        self.camera_widget = CameraWidget(
+            self.circularProgressBarDown, 
+            self.circularProgressBarPerp, 
+            self.circularProgressBarUp, 
+            self.progressBar,
+            pose_time_required,
+            )
+        
         self.cameraWidget.setLayout(QtWidgets.QVBoxLayout())
         self.cameraWidget.layout().addWidget(self.camera_widget)
 
@@ -35,14 +44,12 @@ class Ui(QtWidgets.QMainWindow):
         self.endBtn.clicked.connect(self.camera_widget.endExercise)
 
 class CameraWidget(QWidget):
-    def __init__(self, dialDown, dialPerp, dialUp, progressBar):
+    def __init__(self, dialDown, dialPerp, dialUp, progressBar, pose_time_required):
         super().__init__()
 
         self.initUI()
 
-
-        self.pose_time_required = 3000  # 3 seconds in milliseconds
-
+        self.pose_time_required = pose_time_required  # 3 seconds in milliseconds
 
         # dials, progress bars
         self.dialDown = dialDown
@@ -50,7 +57,6 @@ class CameraWidget(QWidget):
         self.dialUp = dialUp
         self.progressBar = progressBar
 
-        
         # Initialize camera
         self.cap = cv2.VideoCapture(0)
 
@@ -88,12 +94,16 @@ class CameraWidget(QWidget):
 
     def checkPose(self, processed_image):
         current_pose = self.pose_sequence[self.current_pose_index]
+
         if processed_image.is_pose(current_pose):
             elapsed_time = self.pose_timer.elapsed()
+
             self.updateDial(current_pose, elapsed_time)
+
             if elapsed_time >= self.pose_time_required:
                 self.updateUI(current_pose)
                 self.current_pose_index += 1
+
                 if self.current_pose_index < len(self.pose_sequence):
                     self.pose_timer.restart()  # Restart timer for the next pose
                 else:
@@ -104,6 +114,7 @@ class CameraWidget(QWidget):
             self.pose_timer.restart()
 
     def updateDial(self, pose, value):
+        # print(f"pose {pose}, elapsed_time {value}")
         if pose == "down":
             self.dialDown.setValue(value)
         elif pose == "perp":
