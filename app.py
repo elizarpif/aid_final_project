@@ -19,6 +19,20 @@ class Ui(QtWidgets.QMainWindow):
 
         pose_time_required = 3000
 
+        self.labelDown = QLabel("Hand is down")
+        self.labelPerp = QLabel("Hand is straightened")
+        self.labelUp = QLabel("Hand is up")
+
+
+        # Set the alignment of the text to be centered
+        self.labelDown.setAlignment(Qt.AlignCenter)
+        self.labelPerp.setAlignment(Qt.AlignCenter)
+        self.labelUp.setAlignment(Qt.AlignCenter)
+
+        self.labelsHorizontalLayout.layout().addWidget(self.labelDown)
+        self.labelsHorizontalLayout.layout().addWidget(self.labelPerp)
+        self.labelsHorizontalLayout.layout().addWidget(self.labelUp)
+
         self.circularProgressBarUp = CircularProgressBar(pose_time_required)
         self.circularProgressBarDown = CircularProgressBar(pose_time_required)
         self.circularProgressBarPerp = CircularProgressBar(pose_time_required)
@@ -77,9 +91,18 @@ class CameraWidget(QWidget):
         self.current_pose_index = 0
         self.pose_timer = QTime()
 
-    def updateUI(self, pose):
+    def updateUI(self, elapsed_time):
         # Update progress bar
-        progress = (self.current_pose_index + 1) * 33
+        # 33% - 100% - 3000ms
+        # 3000s - 33
+        # 90s - 1
+        if self.current_pose_index == 0:
+            progress = int (elapsed_time/90)
+        if self.current_pose_index == 1:
+            progress = int(33 + (elapsed_time/90))
+        if self.current_pose_index == 2:
+            progress = int(66 + (elapsed_time/90))
+
         self.progressBar.setValue(min(progress, 100))
 
     def startExercise(self):
@@ -90,6 +113,8 @@ class CameraWidget(QWidget):
 
 
     def endExercise(self):
+        self.progressBar.setValue(0)
+        self.resetDials()
         self.is_exercising = False
 
     def checkPose(self, processed_image):
@@ -99,9 +124,9 @@ class CameraWidget(QWidget):
             elapsed_time = self.pose_timer.elapsed()
 
             self.updateDial(current_pose, elapsed_time)
+            self.updateUI(elapsed_time)
 
             if elapsed_time >= self.pose_time_required:
-                self.updateUI(current_pose)
                 self.current_pose_index += 1
 
                 if self.current_pose_index < len(self.pose_sequence):
@@ -137,8 +162,6 @@ class CameraWidget(QWidget):
             if self.is_exercising:
                 processed_image = movenet.process_image(frame)
                 self.checkPose(processed_image)
-
-                # frame = processedImage.img
 
             self.image = QImage(frame.data, frame.shape[1], frame.shape[0], frame.strides[0], QImage.Format_RGB888)
             self.update()  # Trigger paint event
