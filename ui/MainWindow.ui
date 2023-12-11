@@ -623,7 +623,14 @@ QCheckBox::indicator:disabled, QRadioButton::indicator:disabled
     <addaction name="actionAbout_application"/>
     <addaction name="actionExit"/>
    </widget>
+   <widget class="QMenu" name="menuSettings">
+    <property name="title">
+     <string>Settings</string>
+    </property>
+    <addaction name="actionSkeleton_view"/>
+   </widget>
    <addaction name="menuMenu"/>
+   <addaction name="menuSettings"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionExit">
@@ -660,6 +667,17 @@ QCheckBox::indicator:disabled, QRadioButton::indicator:disabled
   <action name="actionExit_2">
    <property name="text">
     <string>Exit</string>
+   </property>
+  </action>
+  <action name="actionSkeleton_view">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Skeleton view</string>
    </property>
   </action>
  </widget>

@@ -57,11 +57,15 @@ class Ui(QtWidgets.QMainWindow):
         self.startBtn.clicked.connect(self.camera_widget.startExercise)
         self.endBtn.clicked.connect(self.camera_widget.endExercise)
 
+        self.actionSkeleton_view.triggered.connect(lambda checked: self.camera_widget.setIsSkeletonView(checked))
+
 class CameraWidget(QWidget):
     def __init__(self, dialDown, dialPerp, dialUp, progressBar, pose_time_required):
         super().__init__()
 
         self.initUI()
+
+        self.is_skeleton_viewable = True
 
         self.pose_time_required = pose_time_required  # 3 seconds in milliseconds
 
@@ -82,6 +86,9 @@ class CameraWidget(QWidget):
         self.image = None
         self.is_exercising = False
         self.initLeftHandExercise()
+    
+    def setIsSkeletonView(self, is_skeleton_viewable):
+        self.is_skeleton_viewable = is_skeleton_viewable
 
     def initUI(self):
         self.resize(640, 480)
@@ -160,8 +167,11 @@ class CameraWidget(QWidget):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             if self.is_exercising:
-                processed_image = movenet.process_image(frame)
+                processed_image = movenet.process_image(frame.copy())
                 self.checkPose(processed_image)
+
+                if self.is_skeleton_viewable:
+                    frame = processed_image.img
 
             self.image = QImage(frame.data, frame.shape[1], frame.shape[0], frame.strides[0], QImage.Format_RGB888)
             self.update()  # Trigger paint event
