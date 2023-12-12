@@ -203,8 +203,8 @@ def classify_pose(keypoints, bodyPartIndices: BodyPartIndex):
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
     angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
     wes_degrees = calculate_angle_three(wrist.numpy(), elbow.numpy(), shoulder.numpy())
-    print(f'elbow angle: {wes_degrees}')
-    print(f'gen angle: {angle_degrees}')
+    #print(f'elbow angle: {wes_degrees}')
+    #print(f'gen angle: {angle_degrees}')
 
     current_movement = None
 
