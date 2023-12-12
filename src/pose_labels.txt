@@ -1,3 +1,5 @@
-down
-perp
-up
+chair
+cobra
+dog
+tree
+warrior
