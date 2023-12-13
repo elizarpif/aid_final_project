@@ -95,9 +95,20 @@ class Ui(QtWidgets.QMainWindow):
                                     "1. First, position your left hand down.\n"
                                     "2. Next, straighten your left hand.\n"
                                     "3. Finally, raise your left hand up.\n\n"
-                                    "Observe your progress on the indicators. To end the exercise, click 'End Exercise'.")
+                                    "Observe your progress on the indicators. To end the exercise early, click 'End Exercise'.")
+            self.camera_widget.initLeftHandExercise()
             self.camera_widget.startExercise()
 
+        if selectedItem.text() == "Right hand":
+            # If the selected item is "Left hand", start the exercise
+            QMessageBox.information(self, "Right Hand Exercise",
+                                    "Exercise 'Right Hand':\n"
+                                    "1. First, position your right hand down.\n"
+                                    "2. Next, straighten your right hand.\n"
+                                    "3. Finally, raise your right hand up.\n\n"
+                                    "Observe your progress on the indicators. To end the exercise early, click 'End Exercise'.")
+            self.camera_widget.initRightHandExercise()
+            self.camera_widget.startExercise()
 
 class CameraWidget(QWidget):
     def __init__(self, dialDown, dialPerp, dialUp, progressBar, pose_time_required):
@@ -125,7 +136,8 @@ class CameraWidget(QWidget):
 
         self.image = None
         self.is_exercising = False
-        self.initLeftHandExercise()
+
+        self.is_left = None
     
     def setIsSkeletonView(self, is_skeleton_viewable):
         self.is_skeleton_viewable = is_skeleton_viewable
@@ -134,7 +146,16 @@ class CameraWidget(QWidget):
         self.resize(640, 480)
 
     def initLeftHandExercise(self):
-        self.pose_sequence = ["down", "perp", "up"]
+        self.is_left = True
+
+        self.pose_sequence = [movenet.POSE_DOWN, movenet.POSE_PERP, movenet.POSE_UP]
+        self.current_pose_index = 0
+        self.pose_timer = QTime()
+    
+    def initRightHandExercise(self):
+        self.is_left = False
+
+        self.pose_sequence = [movenet.POSE_DOWN, movenet.POSE_PERP, movenet.POSE_UP]
         self.current_pose_index = 0
         self.pose_timer = QTime()
 
@@ -158,7 +179,6 @@ class CameraWidget(QWidget):
         self.pose_timer.start()
         self.progressBar.setValue(0)
 
-
     def endExercise(self):
         self.progressBar.setValue(0)
         self.resetDials()
@@ -180,6 +200,7 @@ class CameraWidget(QWidget):
                     self.pose_timer.restart()  # Restart timer for the next pose
                 else:
                     self.endExercise()  # End exercise if all poses are done
+                    self.showSuccess()
         else:
             # Reset the dials if the pose is not correct
             self.resetDials()
@@ -187,11 +208,11 @@ class CameraWidget(QWidget):
 
     def updateDial(self, pose, value):
         # print(f"pose {pose}, elapsed_time {value}")
-        if pose == "down":
+        if pose == movenet.POSE_DOWN:
             self.dialDown.setValue(value)
-        elif pose == "perp":
+        elif pose == movenet.POSE_PERP:
             self.dialPerp.setValue(value)
-        elif pose == "up":
+        elif pose == movenet.POSE_UP:
             self.dialUp.setValue(value)
 
     def resetDials(self):
@@ -207,7 +228,7 @@ class CameraWidget(QWidget):
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             if self.is_exercising:
-                processed_image = movenet.process_image(frame.copy())
+                processed_image = movenet.process_image(frame.copy(), self.is_left)
                 self.checkPose(processed_image)
 
                 if self.is_skeleton_viewable:
@@ -224,6 +245,9 @@ class CameraWidget(QWidget):
     def closeEvent(self, event):
         self.cap.release()
 
+    def showSuccess(self):
+        QMessageBox.information(self, "Well done!", 
+                                "You have successfully finished the exercise.")
 
 app = QtWidgets.QApplication(sys.argv) # Create an instance of QtWidgets.QApplication
 window = Ui() # Create an instance of our class

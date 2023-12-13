@@ -38,7 +38,7 @@ KEYPOINT_EDGE_INDS_TO_COLOR = {
 }
 
 # Download the model from TF Hub.
-model = hub.load('https://tfhub.dev/google/movenet/singlepose/thunder/3')
+model = hub.load('https://www.kaggle.com/models/google/movenet/frameworks/tensorFlow2/variations/singlepose-thunder/versions/3?tfhub-redirect=true')
 movenet = model.signatures['serving_default']
 
 # Threshold for 
@@ -58,6 +58,9 @@ classification_results_to_show = 3
 fps_avg_frame_count = 10
 keypoint_detection_threshold_for_classifier = 0.1
 
+POSE_UP = 'up'
+POSE_PERP = 'perp'
+POSE_DOWN = 'down'
 
 class ProcessedImage:
     def __init__(self, img, pose_class, angle):
@@ -67,7 +70,7 @@ class ProcessedImage:
     def is_pose(self, pose):
         return self.pose_class == pose
 
-def process_image(img): 
+def process_image(img, is_left): 
     y, x, _ = img.shape
 
     tf_img = cv2.resize(img, (256, 256))
@@ -86,14 +89,15 @@ def process_image(img):
     draw_keypoints(img, keypoints, x, y, threshold)
     draw_connections(img, keypoints, KEYPOINT_EDGE_INDS_TO_COLOR, threshold)
 
+    # Define indices for corresponding hand
+    bodyPartIndices = BodyPartIndex(is_left)
+
     # Show the class
-    cl, angle = classify_pose(keypoints)
-    #fps_text = 'class = ' + cl + '\n angle =' + angle
+    cl, angle = classify_pose(keypoints, bodyPartIndices)
     fps_text = f'class: {cl}'
     text_location = (left_margin, row_size)
     cv2.putText(img, fps_text, text_location, cv2.FONT_HERSHEY_PLAIN,
                 font_size, text_color, font_thickness)
-    # Shows image
     return ProcessedImage(img, cl, angle)
 
 
@@ -164,42 +168,52 @@ def calculate_angle(a, b, c, d):
     return np.degrees(angle)
 
 
-# Add global variables to manage pose states
-pose_states = {
-    'down': False,
-    'perp': False,
-    'up': False
-}
+LEFT_SHOULDER_INDEX = 6
+LEFT_HIP_INDEX = 12
+LEFT_WRIST_INDEX = 10
+LEFT_ELBOW_INDEX = 8
 
-def classify_pose(keypoints):
-    global pose_states
-    
+RIGHT_SHOULDER_INDEX = 5
+RIGHT_HIP_INDEX = 11
+RIGHT_WRIST_INDEX = 9
+RIGHT_ELBOW_INDEX = 7
+
+class BodyPartIndex:
+    def __init__(self, is_left):
+        if is_left:
+            self.shoulder_index  = LEFT_SHOULDER_INDEX
+            self.hip_index =  LEFT_HIP_INDEX
+            self.wrist_index = LEFT_WRIST_INDEX
+            self.elbow_index = LEFT_ELBOW_INDEX
+        else:
+            self.shoulder_index  = RIGHT_SHOULDER_INDEX
+            self.hip_index =  RIGHT_HIP_INDEX
+            self.wrist_index = RIGHT_WRIST_INDEX
+            self.elbow_index = RIGHT_ELBOW_INDEX
+
+
+def classify_pose(keypoints, bodyPartIndices: BodyPartIndex):
     # Assuming the same indices for right shoulder, right hip, and right wrist
-    SHOULDER_INDEX = 6
-    HIP_INDEX = 12
-    WRIST_INDEX = 10
-    ELBOW_INDEX = 8
-
     # Extract the specific keypoints (x, y) coordinates
-    shoulder = keypoints[0, 0, SHOULDER_INDEX, :2]
-    hip = keypoints[0, 0, HIP_INDEX, :2]
-    wrist = keypoints[0, 0, WRIST_INDEX, :2]
-    elbow = keypoints[0, 0, ELBOW_INDEX, :2]
+    shoulder = keypoints[0, 0, bodyPartIndices.shoulder_index, :2]
+    hip = keypoints[0, 0, bodyPartIndices.hip_index, :2]
+    wrist = keypoints[0, 0, bodyPartIndices.wrist_index, :2]
+    elbow = keypoints[0, 0, bodyPartIndices.elbow_index, :2]
 
     # Calculate angle (numpy is used for demonstration, but you should use TensorFlow operations in a real model)
     angle_degrees = calculate_angle(wrist.numpy(), shoulder.numpy(), hip.numpy(), elbow.numpy())
     wes_degrees = calculate_angle_three(wrist.numpy(), elbow.numpy(), shoulder.numpy())
-    print(f'elbow angle: {wes_degrees}')
-    print(f'gen angle: {angle_degrees}')
+    #print(f'elbow angle: {wes_degrees}')
+    #print(f'gen angle: {angle_degrees}')
 
     current_movement = None
 
     if angle_degrees < 30:
-        current_movement = 'down'
+        current_movement = POSE_DOWN
     elif 100 <= angle_degrees <= 135:
-        current_movement = 'perp'
+        current_movement = POSE_PERP
     elif 200 > angle_degrees > 180 and 155 < wes_degrees < 170:  
-        current_movement = 'up'
+        current_movement = POSE_UP
 
     
     return current_movement, angle_degrees
