@@ -203,7 +203,7 @@ class CameraWidget(QWidget):
                     self.showSuccess()
         else:
             # Reset the dials if the pose is not correct
-            self.resetDials()
+            # self.resetDials()
             self.pose_timer.restart()
 
     def updateDial(self, pose, value):
