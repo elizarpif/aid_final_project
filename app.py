@@ -60,9 +60,9 @@ class Ui(QtWidgets.QMainWindow):
 
         self.actionSkeleton_view.triggered.connect(lambda checked: self.camera_widget.setIsSkeletonView(checked))
 
-        self.actionAbout_application.triggered.connect(lambda clicked: self.showAboutApplication)
-        self.actionAbout_authors.triggered.connect(lambda clicked: self.showAboutAuthors)
-        self.actionExit.triggered.connect(lambda clicked: QtWidgets.QApplication.quit)
+        self.actionAbout_application.triggered.connect(lambda clicked: self.showAboutApplication())
+        self.actionAbout_authors.triggered.connect(lambda clicked: self.showAboutAuthors())
+        self.actionExit.triggered.connect(lambda clicked: QtWidgets.QApplication.quit())
 
     def showAboutApplication(self):
         QMessageBox.information(self, "About Application", 
